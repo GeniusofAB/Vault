@@ -44,18 +44,9 @@ const els = {
   modalDesc: document.getElementById("modalDesc"),
   modalSize: document.getElementById("modalSize"),
   modalDate: document.getElementById("modalDate"),
-  modalDownloads: document.getElementById("modalDownloads"),
-  modalDownload: document.getElementById("modalDownload"),
 };
 
 const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
-
-// ---------------------------------------------------------------------------
-// загрузка модов — mods/<id>.json описывает мод, сам файл лежит рядом как
-// mods/<id>.vpk, превью — pic/<id>.png. GitHub Pages не отдаёт листинг папок,
-// поэтому список id мы всё равно берём из mods.js, а сюда ходим только за
-// метаданными конкретного мода.
-// ---------------------------------------------------------------------------
 
 async function loadMods() {
   const results = await Promise.allSettled(
@@ -290,7 +281,6 @@ const SORTERS = {
   old: (a, b) => new Date(a.dateAdded) - new Date(b.dateAdded),
   az: (a, b) => a.title.localeCompare(b.title),
   za: (a, b) => b.title.localeCompare(a.title),
-  popular: (a, b) => b.downloads - a.downloads,
 };
 
 // ---------------------------------------------------------------------------
@@ -302,9 +292,6 @@ function formatSize(mb) {
 }
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
-}
-function formatDownloads(n) {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
 function cardTemplate(mod) {
@@ -324,7 +311,6 @@ function cardTemplate(mod) {
       <p class="card-author">${mod.author}</p>
       <div class="card-tags">${mod.tags.map((t) => `<span class="tag-pill">${t}</span>`).join("")}</div>
       <div class="card-footer">
-        <span><span class="material-symbols-outlined tiny">download</span>${formatDownloads(mod.downloads)}</span>
         <span>${formatSize(mod.fileSizeMB)}</span>
       </div>
     </div>`;
@@ -387,7 +373,6 @@ function openModal(mod) {
   els.modalDesc.textContent = mod.description;
   els.modalSize.textContent = formatSize(mod.fileSizeMB);
   els.modalDate.textContent = formatDate(mod.dateAdded);
-  els.modalDownloads.textContent = `${formatDownloads(mod.downloads)} скачиваний`;
   els.modalDownload.href = mod.vpkUrl;
 
   lastFocused = document.activeElement;
