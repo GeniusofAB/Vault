@@ -64,6 +64,11 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Нативный атрибут hidden должен побеждать любые display:flex/grid,
+   иначе .modal-overlay / .empty-state / .grid / .clear-btn (у них у всех
+   свой безусловный display) перекрывают его — и элемент виден всегда,
+   независимо от hidden. */
 [hidden] {
   display: none !important;
 }
