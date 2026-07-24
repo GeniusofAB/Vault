@@ -10,5 +10,5 @@ export const categories = [
 ];
 
 export const modIds = [
-  "pak11_dir",
+  "",
 ];
