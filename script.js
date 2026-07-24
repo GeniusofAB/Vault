@@ -45,9 +45,13 @@ const els = {
   modalSize: document.getElementById("modalSize"),
   modalDate: document.getElementById("modalDate"),
   modalDownload: document.getElementById("modalDownload"),
+  modalDownloadNf: document.getElementById("modalDownloadNf"), // NEW: кнопка "без эффектов"
 };
 
 const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
+
+// дефолт-заглушка, если у мода битая/несуществующая category — чтобы не ронять весь рендер
+const FALLBACK_CATEGORY = { icon: "help", label: "Без категории" };
 
 async function loadMods() {
   const results = await Promise.allSettled(
@@ -266,12 +270,50 @@ function parseQuery(raw) {
   return result;
 }
 
+// NEW: "умный" поиск — раскладка RU<->EN + игнор пробелов/дефисов + aliases
+
+// посимвольная карта клавиш ЙЦУКЕН -> QWERTY
+const RU_EN_MAP = {
+  й: "q", ц: "w", у: "e", к: "r", е: "t", н: "y", г: "u", ш: "i", щ: "o", з: "p", х: "[", ъ: "]",
+  ф: "a", ы: "s", в: "d", а: "f", п: "g", р: "h", о: "j", л: "k", д: "l", ж: ";", э: "'",
+  я: "z", ч: "x", с: "c", м: "v", и: "b", т: "n", ь: "m", б: ",", ю: ".",
+};
+const EN_RU_MAP = Object.fromEntries(Object.entries(RU_EN_MAP).map(([ru, en]) => [en, ru]));
+
+function swapLayout(str, map) {
+  return [...str].map((ch) => map[ch] ?? ch).join("");
+}
+
+// убираем пробелы/дефисы/подчёркивания, чтобы "Anti-Mage" == "antimage" == "anti mage"
+function normalize(str) {
+  return str.toLowerCase().replace(/[\s\-_]/g, "");
+}
+
 function matchesQuery(mod, parsed) {
   const title = mod.title.toLowerCase();
   const author = mod.author.toLowerCase();
   const tags = mod.tags.map((t) => t.toLowerCase());
+  const aliases = (mod.aliases || []).map((a) => a.toLowerCase());
 
-  if (parsed.text.length && !parsed.text.every((t) => title.includes(t) || author.includes(t))) return false;
+  const titleNorm = normalize(title);
+  const authorNorm = normalize(author);
+  const aliasNorm = aliases.map(normalize);
+
+  const textMatches = (raw) => {
+    const qNorm = normalize(raw);
+    const qRuToEn = normalize(swapLayout(raw, RU_EN_MAP));
+    const qEnToRu = normalize(swapLayout(raw, EN_RU_MAP));
+    const candidates = [qNorm, qRuToEn, qEnToRu];
+
+    return candidates.some(
+      (c) =>
+        titleNorm.includes(c) ||
+        authorNorm.includes(c) ||
+        aliasNorm.some((a) => a.includes(c))
+    );
+  };
+
+  if (parsed.text.length && !parsed.text.every(textMatches)) return false;
   if (parsed.by.length && !parsed.by.every((b) => author.includes(b))) return false;
   if (parsed.tag.length && !parsed.tag.every((t) => tags.some((mt) => mt.includes(t)))) return false;
   return true;
@@ -296,7 +338,8 @@ function formatDate(iso) {
 }
 
 function cardTemplate(mod) {
-  const cat = categoryById[mod.category];
+  // NEW: fallback вместо падения всего рендера, если category битая
+  const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
   const card = document.createElement("article");
   card.className = "card";
   card.tabIndex = 0;
@@ -351,7 +394,8 @@ function render() {
 let lastFocused = null;
 
 function openModal(mod) {
-  const cat = categoryById[mod.category];
+  // NEW: fallback вместо падения, если category битая
+  const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
   els.modalCover.style.setProperty("--cover", mod.previewColor || "#8C5CF5");
   els.modalCoverIcon.textContent = cat.icon;
 
@@ -365,6 +409,14 @@ function openModal(mod) {
   img.decoding = "async";
   img.onerror = () => img.remove();
   img.src = mod.picUrl;
+
+  // NEW: клик по картинке — открыть полноразмерную в новой вкладке
+  img.style.cursor = "zoom-in";
+  img.addEventListener("click", (e) => {
+    e.stopPropagation(); // чтобы клик не улетал на оверлей и не закрывал модалку
+    window.open(mod.picUrl, "_blank");
+  });
+
   els.modalCover.appendChild(img);
 
   els.modalCategory.textContent = cat.label;
@@ -375,6 +427,17 @@ function openModal(mod) {
   els.modalSize.textContent = formatSize(mod.fileSizeMB);
   els.modalDate.textContent = formatDate(mod.dateAdded);
   els.modalDownload.href = mod.vpkUrl;
+
+  // NEW: проверяем, есть ли клон без эффектов в mods/nf/<id>.vpk
+  els.modalDownloadNf.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
+  fetch(`mods/nf/${mod.id}.vpk`, { method: "HEAD" })
+    .then((res) => {
+      if (res.ok) {
+        els.modalDownloadNf.href = `mods/nf/${mod.id}.vpk`;
+        els.modalDownloadNf.hidden = false;
+      }
+    })
+    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем кнопку скрытой
 
   lastFocused = document.activeElement;
   els.modalOverlay.hidden = false;
