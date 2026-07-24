@@ -5,7 +5,7 @@ export const categories = [
   { id: "hud", label: "HUD", icon: "dashboard" },
   { id: "wards", label: "Вардены", icon: "visibility" },
   { id: "couriers", label: "Курьеры", icon: "flight" },
-  { id: "fx", label: "Эффекты", icon: "auto_awesome" },
+  { id: "arcane", label: "Арканы", icon: "auto_awesome" },
   { id: "sounds", label: "Звуки", icon: "volume_up" },
 ];
 
