@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — каталог модов Dota 2</title>
+<meta name="description" content="Каталог косметических модов для Dota 2: шрифты, иконки, HUD, вардены, курьеры, эффекты и звуки.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..500,0..1,-25..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="bar-row">
+    <div class="brand">
+      <span class="material-symbols-outlined brand-mark">deployed_code</span>
+      <span class="brand-name">Vault</span>
+    </div>
+
+    <label class="search-field">
+      <span class="material-symbols-outlined">search</span>
+      <input id="searchInput" type="text" placeholder="Поиск по названию, автору, тегам…" autocomplete="off">
+      <button id="clearSearch" class="clear-btn" type="button" hidden aria-label="Очистить поиск">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </label>
+
+    <button id="themeToggle" class="icon-btn" type="button" aria-label="Светлая / тёмная тема">
+      <span class="material-symbols-outlined" id="themeIcon">light_mode</span>
+    </button>
+  </div>
+
+  <div class="bar-row personalize-row">
+    <span class="personalize-label">Свой цвет</span>
+    <div id="swatchRow" class="swatch-row"></div>
+    <input id="seedColorInput" type="color" value="#8C5CF5" aria-label="Выбрать свой цвет темы">
+    <span class="hint-text">Подсказка: <code>tag:иконки</code> · <code>by:автор</code> · <code>sort:new</code></span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div id="chipRow" class="chip-row" role="group" aria-label="Фильтр по категориям"></div>
+  <label class="sort-field">
+    <span class="material-symbols-outlined">sort</span>
+    <select id="sortSelect">
+      <option value="new">Сначала новые</option>
+      <option value="old">Сначала старые</option>
+      <option value="az">A → Я</option>
+      <option value="za">Я → A</option>
+      <option value="popular">По популярности</option>
+    </select>
+  </label>
+</div>
+
+<main>
+  <p id="statsLine" class="stats-line"></p>
+  <div id="grid" class="grid"></div>
+  <div id="emptyState" class="empty-state" hidden>
+    <span class="material-symbols-outlined">search_off</span>
+    <p>Ничего не найдено</p>
+    <span class="empty-sub">Попробуйте другой запрос или сбросьте фильтры</span>
+    <button id="resetFilters" class="btn-tonal" type="button">Сбросить фильтры</button>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <p>Vault — шаблон каталога модов. Файлы модов лежат прямо в репозитории (<code>mods/</code> и <code>pic/</code>) — см. <code>README.md</code>.</p>
+</footer>
+
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button id="modalClose" class="icon-btn modal-close" type="button" aria-label="Закрыть">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <div id="modalCover" class="modal-cover">
+      <span class="material-symbols-outlined modal-cover-icon" id="modalCoverIcon"></span>
+    </div>
+    <div class="modal-body">
+      <p id="modalCategory" class="modal-category"></p>
+      <h2 id="modalTitle"></h2>
+      <p id="modalAuthor" class="modal-author"></p>
+      <div id="modalTags" class="chip-row modal-tags"></div>
+      <p id="modalDesc" class="modal-desc"></p>
+      <div class="modal-meta">
+        <span><span class="material-symbols-outlined tiny">folder_zip</span> <span id="modalSize"></span></span>
+        <span><span class="material-symbols-outlined tiny">calendar_today</span> <span id="modalDate"></span></span>
+        <span><span class="material-symbols-outlined tiny">download</span> <span id="modalDownloads"></span></span>
+      </div>
+      <a id="modalDownload" class="btn-filled" href="#" target="_blank" rel="noopener noreferrer" download>
+        <span class="material-symbols-outlined">download</span>
+        Скачать
+      </a>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
