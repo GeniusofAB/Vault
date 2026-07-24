@@ -1,6 +1,6 @@
 export const categories = [
   { id: "fonts", label: "Шрифты", icon: "text_fields" },
-  { id: "icons", label: "Иконки", icon: "apps" },
+  { id: "skins", label: "Скины", icon: "face" },
   { id: "loading", label: "Загрузочные экраны", icon: "wallpaper" },
   { id: "creeps", label: "Крипы", icon: "groups" },
   { id: "wards", label: "Варды", icon: "visibility" },
