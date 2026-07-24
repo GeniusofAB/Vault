@@ -2,8 +2,8 @@ export const categories = [
   { id: "fonts", label: "Шрифты", icon: "text_fields" },
   { id: "icons", label: "Иконки", icon: "apps" },
   { id: "loading", label: "Загрузочные экраны", icon: "wallpaper" },
-  { id: "hud", label: "HUD", icon: "dashboard" },
-  { id: "wards", label: "Вардены", icon: "visibility" },
+  { id: "creeps", label: "Крипы", icon: "groups" },
+  { id: "wards", label: "Варды", icon: "visibility" },
   { id: "couriers", label: "Курьеры", icon: "flight" },
   { id: "arcane", label: "Арканы", icon: "auto_awesome" },
   { id: "sounds", label: "Звуки", icon: "volume_up" },
@@ -11,5 +11,7 @@ export const categories = [
 
 export const modIds = [
   "pak11_dir",
+  "pak12_dir",
+  "pak13_dir",
   "pak14_dir",
 ];
