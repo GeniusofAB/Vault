@@ -44,6 +44,7 @@ const els = {
   modalDesc: document.getElementById("modalDesc"),
   modalSize: document.getElementById("modalSize"),
   modalDate: document.getElementById("modalDate"),
+  modalDownload: document.getElementById("modalDownload"),
 };
 
 const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
