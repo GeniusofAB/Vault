@@ -10,14 +10,5 @@ export const categories = [
 ];
 
 export const modIds = [
-  "aurora-loading-screens",
-  "crimson-hud",
-  "inter-tight-font",
-  "glyph-icon-pack",
-  "ember-wards",
-  "skybound-courier",
-  "arcane-spellburst-fx",
-  "lofi-ambient-sfx",
-  "goldrush-loading",
-  "mono-serif-font",
+  "pak11_dir",
 ];
