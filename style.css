@@ -511,6 +511,59 @@ main { flex: 1; padding: 8px clamp(16px, 4vw, 40px) 40px; }
   font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 48;
 }
 
+/* NEW: точки-переключатели превью (основной стиль / второй стиль) —
+   показываются только если у мода найден mods/styles/<id>.vpk */
+.modal-style-dots {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--shape-full);
+  background: color-mix(in srgb, black 45%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.style-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--shape-full);
+  border: 2px solid color-mix(in srgb, white 70%, transparent);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--dur-s) var(--ease), background var(--dur-s) var(--ease), border-color var(--dur-s) var(--ease);
+}
+.style-dot:hover { transform: scale(1.15); }
+.style-dot.active { background: white; border-color: white; }
+
+/* NEW: переключатель "Стиль 1 / Стиль 2" поверх обложки в модалке —
+   показывается только когда для мода найден второй стиль (mods/styles/<id>.vpk) */
+.style-tabs {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+.style-tab {
+  border: none;
+  background: color-mix(in srgb, black 35%, transparent);
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-variation-settings: "wght" 600;
+  padding: 6px 14px;
+  border-radius: var(--shape-full);
+  cursor: pointer;
+  transition: background var(--dur-s) var(--ease), color var(--dur-s) var(--ease);
+}
+.style-tab:hover { background: color-mix(in srgb, black 55%, transparent); }
+.style-tab.active { background: var(--md-primary); color: var(--md-on-primary); }
+
 .modal-body { padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 6px; }
 .modal-category {
   margin: 0;
