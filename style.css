@@ -537,7 +537,25 @@ main { flex: 1; padding: 8px clamp(16px, 4vw, 40px) 40px; }
   flex-wrap: wrap;
 }
 .modal-meta span { display: flex; align-items: center; gap: 4px; }
-.modal-body .btn-filled { align-self: flex-start; }
+
+/* NEW: контейнер для кнопок скачивания в модалке (Скачать / Без эффектов /
+   Доп. файлы / Второй стиль). Grid без явных grid-template-columns даёт один
+   неявный столбец шириной max-content — он подстраивается под САМУЮ длинную
+   подпись среди видимых кнопок, а остальные (width: 100%) тянутся под неё же.
+   align-self: flex-start — чтобы сам контейнер не растягивался на всю ширину
+   модалки дефолтным align-items: stretch у .modal-body. */
+.modal-downloads {
+  display: grid;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.modal-downloads .btn-filled,
+.modal-downloads .btn-tonal {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0; /* было 8px у .btn-tonal — тут отступ уже даёт gap контейнера */
+}
 
 /* ---------------------------------- responsive ---------------------------------- */
 
