@@ -15,4 +15,5 @@ export const modIds = [
   "pak13_dir",
   "pak14_dir",
   "pak15_dir",
+  "pak16_dir",
 ];
