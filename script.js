@@ -49,6 +49,7 @@ const els = {
   modalDownloadDlc: document.getElementById("modalDownloadDlc"), // NEW: кнопка доп. файлов (dlc)
   modalDownloadDlcLabel: document.getElementById("modalDownloadDlcLabel"), // NEW: текст на кнопке dlc, берётся из json мода
   modalDownloadStyle: document.getElementById("modalDownloadStyle"), // NEW: кнопка второго стиля
+  modalStyleDots: document.getElementById("modalStyleDots"), // NEW: точки-переключатели "основной стиль / второй стиль"
 };
 
 const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
@@ -413,6 +414,47 @@ function checkExtraDownload(el, url, labelEl, labelText) {
     .catch(() => {}); // файла нет / сеть моргнула — молча оставляем кнопку скрытой
 }
 
+// NEW: (пере)создаёт картинку обложки в модалке — используется и при открытии
+// модалки, и при клике по точкам "основной стиль / второй стиль", чтобы не
+// мелькала старая картинка и не мешал onerror от предыдущей попытки загрузки
+function setCoverImage(url) {
+  els.modalCover.querySelector(".cover-img")?.remove();
+  const img = document.createElement("img");
+  img.className = "cover-img";
+  img.alt = "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.onerror = () => img.remove();
+  img.src = url;
+
+  // клик по картинке — открыть текущую (активную) версию полноразмерной в новой вкладке
+  img.style.cursor = "zoom-in";
+  img.addEventListener("click", (e) => {
+    e.stopPropagation(); // чтобы клик не улетал на оверлей и не закрывал модалку
+    window.open(url, "_blank");
+  });
+
+  els.modalCover.appendChild(img);
+}
+
+// NEW: включает точки-переключатели превью для мода со вторым стилем —
+// основная картинка pic/<id>.png, картинка второго стиля mods/styles/<id>.png
+function enableStyleDots(mod) {
+  const primaryUrl = mod.picUrl;
+  const styleUrl = `mods/styles/${mod.id}.png`;
+  const dots = [...els.modalStyleDots.querySelectorAll(".style-dot")];
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("active", i === 0);
+    dot.onclick = (e) => {
+      e.stopPropagation();
+      dots.forEach((d) => d.classList.remove("active"));
+      dot.classList.add("active");
+      setCoverImage(i === 0 ? primaryUrl : styleUrl);
+    };
+  });
+  els.modalStyleDots.hidden = false;
+}
+
 function openModal(mod) {
   // NEW: fallback вместо падения, если category битая
   const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
@@ -421,23 +463,8 @@ function openModal(mod) {
 
   // пересоздаём картинку превью на каждое открытие, чтобы не мелькала
   // обложка предыдущего мода, пока грузится/не грузится новая
-  els.modalCover.querySelector(".cover-img")?.remove();
-  const img = document.createElement("img");
-  img.className = "cover-img";
-  img.alt = "";
-  img.loading = "lazy";
-  img.decoding = "async";
-  img.onerror = () => img.remove();
-  img.src = mod.picUrl;
-
-  // NEW: клик по картинке — открыть полноразмерную в новой вкладке
-  img.style.cursor = "zoom-in";
-  img.addEventListener("click", (e) => {
-    e.stopPropagation(); // чтобы клик не улетал на оверлей и не закрывал модалку
-    window.open(mod.picUrl, "_blank");
-  });
-
-  els.modalCover.appendChild(img);
+  setCoverImage(mod.picUrl);
+  els.modalStyleDots.hidden = true; // сбрасываем сразу — покажем обратно, только если найдём второй стиль
 
   els.modalCategory.textContent = cat.label;
   els.modalTitle.textContent = mod.title;
@@ -448,10 +475,22 @@ function openModal(mod) {
   els.modalDate.textContent = formatDate(mod.dateAdded);
   els.modalDownload.href = mod.vpkUrl;
 
-  // NEW: проверяем доп. версии файла — без эффектов (nf), доп. файлы (dlc), второй стиль (styles)
+  // NEW: проверяем доп. версии файла — без эффектов (nf), доп. файлы (dlc)
   checkExtraDownload(els.modalDownloadNf, `mods/nf/${mod.id}.vpk`);
   checkExtraDownload(els.modalDownloadDlc, `mods/dlc/${mod.id}.vpk`, els.modalDownloadDlcLabel, mod.dlcLabel || "Доп. файлы");
-  checkExtraDownload(els.modalDownloadStyle, `mods/styles/${mod.id}.vpk`);
+
+  // NEW: второй стиль — своя проверка, т.к. кроме кнопки скачивания
+  // включает ещё и точки-переключатель картинки превью
+  els.modalDownloadStyle.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
+  fetch(`mods/styles/${mod.id}.vpk`, { method: "HEAD" })
+    .then((res) => {
+      if (res.ok) {
+        els.modalDownloadStyle.href = `mods/styles/${mod.id}.vpk`;
+        els.modalDownloadStyle.hidden = false;
+        enableStyleDots(mod);
+      }
+    })
+    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем скрытым
 
   lastFocused = document.activeElement;
   els.modalOverlay.hidden = false;
