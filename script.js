@@ -45,7 +45,10 @@ const els = {
   modalSize: document.getElementById("modalSize"),
   modalDate: document.getElementById("modalDate"),
   modalDownload: document.getElementById("modalDownload"),
-  modalDownloadNf: document.getElementById("modalDownloadNf"), // NEW: кнопка "без эффектов"
+  modalDownloadNf: document.getElementById("modalDownloadNf"), // кнопка "без эффектов"
+  modalDownloadDlc: document.getElementById("modalDownloadDlc"), // NEW: кнопка доп. файлов (dlc)
+  modalDownloadDlcLabel: document.getElementById("modalDownloadDlcLabel"), // NEW: текст на кнопке dlc, берётся из json мода
+  modalDownloadStyle: document.getElementById("modalDownloadStyle"), // NEW: кнопка второго стиля
 };
 
 const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
@@ -393,6 +396,23 @@ function render() {
 
 let lastFocused = null;
 
+// NEW: универсальная проверка доп. версии файла (nf / dlc / styles) —
+// делаем HEAD-запрос, и если файл реально лежит на сервере, показываем кнопку.
+// labelEl/labelText — опционально, чтобы подставить кастомный текст (нужно для dlc,
+// где подпись кнопки берётся из json конкретного мода).
+function checkExtraDownload(el, url, labelEl, labelText) {
+  el.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
+  fetch(url, { method: "HEAD" })
+    .then((res) => {
+      if (res.ok) {
+        el.href = url;
+        if (labelEl && labelText) labelEl.textContent = labelText;
+        el.hidden = false;
+      }
+    })
+    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем кнопку скрытой
+}
+
 function openModal(mod) {
   // NEW: fallback вместо падения, если category битая
   const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
@@ -428,16 +448,10 @@ function openModal(mod) {
   els.modalDate.textContent = formatDate(mod.dateAdded);
   els.modalDownload.href = mod.vpkUrl;
 
-  // NEW: проверяем, есть ли клон без эффектов в mods/nf/<id>.vpk
-  els.modalDownloadNf.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
-  fetch(`mods/nf/${mod.id}.vpk`, { method: "HEAD" })
-    .then((res) => {
-      if (res.ok) {
-        els.modalDownloadNf.href = `mods/nf/${mod.id}.vpk`;
-        els.modalDownloadNf.hidden = false;
-      }
-    })
-    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем кнопку скрытой
+  // NEW: проверяем доп. версии файла — без эффектов (nf), доп. файлы (dlc), второй стиль (styles)
+  checkExtraDownload(els.modalDownloadNf, `mods/nf/${mod.id}.vpk`);
+  checkExtraDownload(els.modalDownloadDlc, `mods/dlc/${mod.id}.vpk`, els.modalDownloadDlcLabel, mod.dlcLabel || "Доп. файлы");
+  checkExtraDownload(els.modalDownloadStyle, `mods/styles/${mod.id}.vpk`);
 
   lastFocused = document.activeElement;
   els.modalOverlay.hidden = false;
