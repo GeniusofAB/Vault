@@ -473,7 +473,9 @@ function openModal(mod) {
   els.modalDesc.textContent = mod.description;
   els.modalSize.textContent = formatSize(mod.fileSizeMB);
   els.modalDate.textContent = formatDate(mod.dateAdded);
-  els.modalDownload.href = mod.vpkUrl;
+  // NEW: если в json мода указана внешняя ссылка (Google Drive, релиз на GitHub и т.п.) —
+  // качаем оттуда, иначе — локальный vpk из mods/. Поле необязательное.
+  els.modalDownload.href = mod.externalUrl || mod.vpkUrl;
 
   // NEW: проверяем доп. версии файла — без эффектов (nf), доп. файлы (dlc)
   checkExtraDownload(els.modalDownloadNf, `mods/nf/${mod.id}.vpk`);
