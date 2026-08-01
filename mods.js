@@ -1,7 +1,7 @@
 export const categories = [
   { id: "fonts", label: "Шрифты", icon: "text_fields" },
   { id: "skins", label: "Скины", icon: "face" },
-  { id: "personas", label: "Личность", icon: "person_book" },
+  { id: "personas", label: "Личности", icon: "person_book" },
   { id: "creeps", label: "Крипы", icon: "groups" },
   { id: "wards", label: "Варды", icon: "visibility" },
   { id: "couriers", label: "Курьеры", icon: "flight" },
