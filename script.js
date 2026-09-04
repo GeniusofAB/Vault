@@ -1,37 +1,42 @@
 import { categories, modIds } from "./mods.js";
 
+// ---------------------------------------------------------------------------
+// state
+// ---------------------------------------------------------------------------
 const state = {
   query: "",
   activeCategories: new Set(),
   sort: "new",
-  cart: [],
 };
 
+// Заполняется асинхронно в boot() — см. loadMods() ниже.
 let modsData = [];
-const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
-const FALLBACK_CATEGORY = { icon: "help", label: "Без категории" };
+
+const PRESET_SEEDS = [
+  { name: "Аметист", hex: "#8C5CF5" },
+  { name: "Янтарь", hex: "#F0A83B" },
+  { name: "Багрянец", hex: "#E5484D" },
+  { name: "Бирюза", hex: "#2DD4BF" },
+  { name: "Изумруд", hex: "#4ADE80" },
+];
 
 const els = {
-  searchInput: document.getElementById("searchInput"),
-  searchClear: document.getElementById("searchClear"),
-  themeToggle: document.getElementById("themeToggle"),
-  themeIcon: document.getElementById("themeIcon"),
   grid: document.getElementById("grid"),
-  statsLine: document.getElementById("statsLine"),
-  emptyState: document.getElementById("emptyState"),
+  stats: document.getElementById("statsLine"),
+  empty: document.getElementById("emptyState"),
+  search: document.getElementById("searchInput"),
+  clearSearch: document.getElementById("clearSearch"),
+  chipRow: document.getElementById("chipRow"),
   sortSelect: document.getElementById("sortSelect"),
   resetFilters: document.getElementById("resetFilters"),
-  categoryList: document.getElementById("categoryList"),
-  mobileMenuToggle: document.getElementById("mobileMenuToggle"),
-  sidebar: document.getElementById("sidebar"),
-  sidebarClose: document.getElementById("sidebarClose"),
-  overlay: document.getElementById("overlay"),
-  cartBtn: document.getElementById("cartBtn"),
-  cartBadge: document.getElementById("cartBadge"),
+  swatchRow: document.getElementById("swatchRow"),
+  seedColorInput: document.getElementById("seedColorInput"),
+  themeToggle: document.getElementById("themeToggle"),
+  themeIcon: document.getElementById("themeIcon"),
   modalOverlay: document.getElementById("modalOverlay"),
   modalClose: document.getElementById("modalClose"),
   modalCover: document.getElementById("modalCover"),
-  modalIcon: document.getElementById("modalIcon"),
+  modalCoverIcon: document.getElementById("modalCoverIcon"),
   modalCategory: document.getElementById("modalCategory"),
   modalTitle: document.getElementById("modalTitle"),
   modalAuthor: document.getElementById("modalAuthor"),
@@ -40,342 +45,505 @@ const els = {
   modalSize: document.getElementById("modalSize"),
   modalDate: document.getElementById("modalDate"),
   modalDownload: document.getElementById("modalDownload"),
-  modalAddCart: document.getElementById("modalAddCart"),
-  extraDownloads: document.getElementById("extraDownloads"),
-  cartOverlay: document.getElementById("cartOverlay"),
-  cartModalClose: document.getElementById("cartModalClose"),
-  cartItemsList: document.getElementById("cartItemsList"),
-  cartEmpty: document.getElementById("cartEmpty"),
-  cartClearBtn: document.getElementById("cartClearBtn"),
-  cartDownloadBtn: document.getElementById("cartDownloadBtn"),
-  cartFooter: document.getElementById("cartFooter"),
+  modalDownloadNf: document.getElementById("modalDownloadNf"), // кнопка "без эффектов"
+  modalDownloadDlc: document.getElementById("modalDownloadDlc"), // NEW: кнопка доп. файлов (dlc)
+  modalDownloadDlcLabel: document.getElementById("modalDownloadDlcLabel"), // NEW: текст на кнопке dlc, берётся из json мода
+  modalDownloadStyle: document.getElementById("modalDownloadStyle"), // NEW: кнопка второго стиля
+  modalStyleDots: document.getElementById("modalStyleDots"), // NEW: точки-переключатели "основной стиль / второй стиль"
 };
 
-// LOAD MODS
+const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
+
+// дефолт-заглушка, если у мода битая/несуществующая category — чтобы не ронять весь рендер
+const FALLBACK_CATEGORY = { icon: "help", label: "Без категории" };
+
 async function loadMods() {
   const results = await Promise.allSettled(
     modIds.map(async (id) => {
       const res = await fetch(`mods/${id}.json`);
-      if (!res.ok) throw new Error(`${res.status}`);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const meta = await res.json();
-      return { id, ...meta, vpkUrl: `mods/${id}.vpk`, picUrl: `pic/${id}.png` };
+      return {
+        id,
+        ...meta,
+        vpkUrl: `mods/${id}.vpk`,
+        picUrl: `pic/${id}.png`,
+      };
     })
   );
-  return results
-    .filter((r) => r.status === "fulfilled")
-    .map((r) => r.value);
+
+  const loaded = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") loaded.push(r.value);
+    else console.warn(`Не удалось загрузить мод "${modIds[i]}": ${r.reason}`);
+  });
+  return loaded;
 }
 
-// UTILITIES
-function formatSize(mb) {
-  return mb >= 1000 ? `${(mb / 1000).toFixed(1)} ГБ` : `${mb.toFixed(1)} МБ`;
+// ---------------------------------------------------------------------------
+// theme + dynamic color (the "Material You" bit — self-contained, no CDN
+// dependency, so the live re-theme always works offline too)
+// ---------------------------------------------------------------------------
+
+function hexToHsl(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4;
+    }
+    h *= 60;
+  }
+  return [h, s * 100, l * 100];
 }
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+const hsl = (h, s, l) => `hsl(${h.toFixed(1)} ${clamp(s, 0, 100).toFixed(1)}% ${clamp(l, 0, 100).toFixed(1)}%)`;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function applySeedColor(hex, isDark) {
+  const [h, rawS] = hexToHsl(hex);
+  const s = Math.max(rawS, 42); // keep it vivid even for near-grey picks
+  const h2 = h; // secondary: same hue, muted
+  const h3 = (h + 55) % 360; // tertiary: analogous accent for contrast
+
+  const set = (name, val) => document.documentElement.style.setProperty(name, val);
+
+  if (isDark) {
+    set("--md-primary", hsl(h, s, 80));
+    set("--md-on-primary", hsl(h, s * 0.5, 18));
+    set("--md-primary-container", hsl(h, s * 0.7, 32));
+    set("--md-on-primary-container", hsl(h, s * 0.4, 92));
+
+    set("--md-secondary", hsl(h2, Math.min(s * 0.3, 22), 78));
+    set("--md-on-secondary", hsl(h2, 10, 20));
+    set("--md-secondary-container", hsl(h2, 14, 28));
+    set("--md-on-secondary-container", hsl(h2, 18, 90));
+
+    set("--md-tertiary", hsl(h3, Math.min(s * 0.65, 60), 78));
+    set("--md-on-tertiary", hsl(h3, 30, 20));
+    set("--md-tertiary-container", hsl(h3, 40, 30));
+    set("--md-on-tertiary-container", hsl(h3, 30, 90));
+
+    set("--md-background", hsl(h, 12, 8));
+    set("--md-on-background", hsl(h, 8, 90));
+    set("--md-surface", hsl(h, 12, 8));
+    set("--md-on-surface", hsl(h, 8, 90));
+    set("--md-surface-variant", hsl(h, 12, 28));
+    set("--md-on-surface-variant", hsl(h, 8, 80));
+    set("--md-outline", hsl(h, 6, 55));
+    set("--md-outline-variant", hsl(h, 10, 28));
+    set("--md-surface-container-low", hsl(h, 12, 11));
+    set("--md-surface-container", hsl(h, 12, 13));
+    set("--md-surface-container-high", hsl(h, 12, 17));
+    set("--md-surface-container-highest", hsl(h, 12, 22));
+  } else {
+    set("--md-primary", hsl(h, s, 42));
+    set("--md-on-primary", hsl(h, s * 0.3, 99));
+    set("--md-primary-container", hsl(h, s * 0.55, 90));
+    set("--md-on-primary-container", hsl(h, s * 0.6, 16));
+
+    set("--md-secondary", hsl(h2, 20, 38));
+    set("--md-on-secondary", hsl(h2, 10, 99));
+    set("--md-secondary-container", hsl(h2, 30, 90));
+    set("--md-on-secondary-container", hsl(h2, 20, 18));
+
+    set("--md-tertiary", hsl(h3, Math.min(s * 0.6, 55), 36));
+    set("--md-on-tertiary", hsl(h3, 20, 99));
+    set("--md-tertiary-container", hsl(h3, 55, 88));
+    set("--md-on-tertiary-container", hsl(h3, 35, 18));
+
+    set("--md-background", hsl(h, 25, 99));
+    set("--md-on-background", hsl(h, 8, 12));
+    set("--md-surface", hsl(h, 25, 99));
+    set("--md-on-surface", hsl(h, 8, 12));
+    set("--md-surface-variant", hsl(h, 16, 90));
+    set("--md-on-surface-variant", hsl(h, 8, 32));
+    set("--md-outline", hsl(h, 6, 48));
+    set("--md-outline-variant", hsl(h, 14, 84));
+    set("--md-surface-container-low", hsl(h, 25, 97));
+    set("--md-surface-container", hsl(h, 22, 95));
+    set("--md-surface-container-high", hsl(h, 20, 92));
+    set("--md-surface-container-highest", hsl(h, 18, 89));
+  }
+}
+
+function buildSwatches() {
+  PRESET_SEEDS.forEach((seed) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "swatch";
+    btn.style.background = seed.hex;
+    btn.title = seed.name;
+    btn.setAttribute("aria-label", seed.name);
+    btn.dataset.hex = seed.hex;
+    btn.addEventListener("click", () => setSeed(seed.hex));
+    els.swatchRow.appendChild(btn);
+  });
+  const customBtn = document.createElement("button");
+  customBtn.type = "button";
+  customBtn.className = "custom-swatch";
+  customBtn.title = "Свой цвет";
+  customBtn.setAttribute("aria-label", "Выбрать свой цвет");
+  customBtn.innerHTML = '<span class="material-symbols-outlined">add</span>';
+  customBtn.addEventListener("click", () => els.seedColorInput.click());
+  els.swatchRow.appendChild(customBtn);
+}
+
+function markActiveSwatch(hex) {
+  [...els.swatchRow.querySelectorAll(".swatch")].forEach((s) => {
+    s.classList.toggle("active", s.dataset.hex.toLowerCase() === hex.toLowerCase());
   });
 }
 
+function setSeed(hex) {
+  const isDark = document.documentElement.dataset.theme !== "light";
+  applySeedColor(hex, isDark);
+  markActiveSwatch(hex);
+  els.seedColorInput.value = hex;
+  localStorage.setItem("pakvault-seed", hex);
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem("pakvault-theme") || "dark";
+  const savedSeed = localStorage.getItem("pakvault-seed") || "#8C5CF5";
+  document.documentElement.dataset.theme = savedTheme;
+  els.themeIcon.textContent = savedTheme === "light" ? "dark_mode" : "light_mode";
+  applySeedColor(savedSeed, savedTheme !== "light");
+  markActiveSwatch(savedSeed);
+  els.seedColorInput.value = savedSeed;
+
+  els.themeToggle.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    els.themeIcon.textContent = next === "light" ? "dark_mode" : "light_mode";
+    localStorage.setItem("pakvault-theme", next);
+    applySeedColor(localStorage.getItem("pakvault-seed") || "#8C5CF5", next !== "light");
+  });
+
+  els.seedColorInput.addEventListener("input", (e) => setSeed(e.target.value));
+}
+
+// ---------------------------------------------------------------------------
+// filter chips
+// ---------------------------------------------------------------------------
+
+function buildChips() {
+  categories.forEach((cat) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.dataset.cat = cat.id;
+    chip.innerHTML = `<span class="material-symbols-outlined">${cat.icon}</span>${cat.label}`;
+    chip.addEventListener("click", () => {
+      if (state.activeCategories.has(cat.id)) state.activeCategories.delete(cat.id);
+      else state.activeCategories.add(cat.id);
+      chip.classList.toggle("active");
+      render();
+    });
+    els.chipRow.appendChild(chip);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// search parsing — supports the same "by:/tag:/sort:" mini-syntax as the
+// original D2PFX viewer, piped together: "tag:icons|by:NightSky|sort:az"
+// ---------------------------------------------------------------------------
+
+function parseQuery(raw) {
+  const clauses = raw.split("|").map((c) => c.trim()).filter(Boolean);
+  const result = { text: [], by: [], tag: [], sort: null };
+  clauses.forEach((clause) => {
+    const m = clause.match(/^(by|tag|sort):(.+)$/i);
+    if (m) {
+      const key = m[1].toLowerCase();
+      const val = m[2].trim().toLowerCase();
+      if (key === "sort") result.sort = val;
+      else result[key].push(val);
+    } else if (clause) {
+      result.text.push(clause.toLowerCase());
+    }
+  });
+  return result;
+}
+
+// NEW: "умный" поиск — раскладка RU<->EN + игнор пробелов/дефисов + aliases
+
+// посимвольная карта клавиш ЙЦУКЕН -> QWERTY
+const RU_EN_MAP = {
+  й: "q", ц: "w", у: "e", к: "r", е: "t", н: "y", г: "u", ш: "i", щ: "o", з: "p", х: "[", ъ: "]",
+  ф: "a", ы: "s", в: "d", а: "f", п: "g", р: "h", о: "j", л: "k", д: "l", ж: ";", э: "'",
+  я: "z", ч: "x", с: "c", м: "v", и: "b", т: "n", ь: "m", б: ",", ю: ".",
+};
+const EN_RU_MAP = Object.fromEntries(Object.entries(RU_EN_MAP).map(([ru, en]) => [en, ru]));
+
+function swapLayout(str, map) {
+  return [...str].map((ch) => map[ch] ?? ch).join("");
+}
+
+// убираем пробелы/дефисы/подчёркивания, чтобы "Anti-Mage" == "antimage" == "anti mage"
 function normalize(str) {
   return str.toLowerCase().replace(/[\s\-_]/g, "");
 }
 
-function matchesQuery(mod, query) {
-  if (!query) return true;
-  const q = normalize(query);
-  const titleNorm = normalize(mod.title);
-  const authorNorm = normalize(mod.author);
-  const tagsNorm = mod.tags.map(normalize);
-  return (
-    titleNorm.includes(q) ||
-    authorNorm.includes(q) ||
-    tagsNorm.some((t) => t.includes(q))
-  );
+function matchesQuery(mod, parsed) {
+  const title = mod.title.toLowerCase();
+  const author = mod.author.toLowerCase();
+  const tags = mod.tags.map((t) => t.toLowerCase());
+  const aliases = (mod.aliases || []).map((a) => a.toLowerCase());
+
+  const titleNorm = normalize(title);
+  const authorNorm = normalize(author);
+  const aliasNorm = aliases.map(normalize);
+
+  const textMatches = (raw) => {
+    const qNorm = normalize(raw);
+    const qRuToEn = normalize(swapLayout(raw, RU_EN_MAP));
+    const qEnToRu = normalize(swapLayout(raw, EN_RU_MAP));
+    const candidates = [qNorm, qRuToEn, qEnToRu];
+
+    return candidates.some(
+      (c) =>
+        titleNorm.includes(c) ||
+        authorNorm.includes(c) ||
+        aliasNorm.some((a) => a.includes(c))
+    );
+  };
+
+  if (parsed.text.length && !parsed.text.every(textMatches)) return false;
+  if (parsed.by.length && !parsed.by.every((b) => author.includes(b))) return false;
+  if (parsed.tag.length && !parsed.tag.every((t) => tags.some((mt) => mt.includes(t)))) return false;
+  return true;
 }
 
-// THEME
-function initTheme() {
-  const savedTheme = localStorage.getItem("vault-theme") || "dark";
-  document.documentElement.dataset.theme = savedTheme;
-  els.themeIcon.textContent = savedTheme === "dark" ? "light_mode" : "dark_mode";
+const SORTERS = {
+  new: (a, b) => new Date(b.dateAdded) - new Date(a.dateAdded),
+  old: (a, b) => new Date(a.dateAdded) - new Date(b.dateAdded),
+  az: (a, b) => a.title.localeCompare(b.title),
+  za: (a, b) => b.title.localeCompare(a.title),
+};
 
-  els.themeToggle.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    els.themeIcon.textContent = next === "dark" ? "light_mode" : "dark_mode";
-    localStorage.setItem("vault-theme", next);
-  });
+// ---------------------------------------------------------------------------
+// rendering
+// ---------------------------------------------------------------------------
+
+function formatSize(mb) {
+  return mb >= 1000 ? `${(mb / 1000).toFixed(1)} ГБ` : `${mb.toFixed(1)} МБ`;
+}
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-// CATEGORIES
-function buildCategories() {
-  categories.forEach((cat) => {
-    const btn = document.createElement("button");
-    btn.className = "category-btn";
-    btn.dataset.cat = cat.id;
-    btn.innerHTML = `<span class="material-symbols-rounded">${cat.icon}</span>${cat.label}`;
-    btn.addEventListener("click", () => {
-      state.activeCategories.has(cat.id)
-        ? state.activeCategories.delete(cat.id)
-        : state.activeCategories.add(cat.id);
-      btn.classList.toggle("active");
-      render();
-    });
-    els.categoryList.appendChild(btn);
-  });
-}
-
-// RENDER
-function render() {
-  const filtered = modsData
-    .filter((m) => matchesQuery(m, state.query))
-    .filter(
-      (m) =>
-        state.activeCategories.size === 0 ||
-        state.activeCategories.has(m.category)
-    )
-    .sort((a, b) => {
-      switch (state.sort) {
-        case "new":
-          return new Date(b.dateAdded) - new Date(a.dateAdded);
-        case "old":
-          return new Date(a.dateAdded) - new Date(b.dateAdded);
-        case "az":
-          return a.title.localeCompare(b.title);
-        case "za":
-          return b.title.localeCompare(a.title);
-        default:
-          return 0;
-      }
-    });
-
-  els.grid.innerHTML = "";
-  filtered.forEach((mod) => {
-    const card = createCard(mod);
-    els.grid.appendChild(card);
-  });
-
-  els.emptyState.hidden = filtered.length !== 0;
-  els.grid.hidden = filtered.length === 0;
-  els.statsLine.textContent = `${filtered.length} из ${modsData.length} модов`;
-  els.searchClear.style.display = state.query ? "flex" : "none";
-}
-
-function createCard(mod) {
+function cardTemplate(mod) {
+  // NEW: fallback вместо падения всего рендера, если category битая
   const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
   const card = document.createElement("article");
   card.className = "card";
+  card.tabIndex = 0;
+  card.style.setProperty("--cover", mod.previewColor || "#8C5CF5");
   card.innerHTML = `
     <div class="card-cover">
-      <span class="material-symbols-rounded">${cat.icon}</span>
-      <img class="cover-img" src="${mod.picUrl}" alt="" loading="lazy" onerror="this.style.display='none'">
+      <span class="material-symbols-outlined">${cat.icon}</span>
+      <img class="cover-img" src="${mod.picUrl}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
     </div>
     <div class="card-body">
       <span class="card-category">${cat.label}</span>
       <h3 class="card-title">${mod.title}</h3>
       <p class="card-author">${mod.author}</p>
-      <div class="card-tags">${mod.tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
-      <div class="card-footer">${formatSize(mod.fileSizeMB)}</div>
-    </div>
-  `;
-  card.addEventListener("click", () => openModal(mod));
+      <div class="card-tags">${mod.tags.map((t) => `<span class="tag-pill">${t}</span>`).join("")}</div>
+      <div class="card-footer">
+        <span>${formatSize(mod.fileSizeMB)}</span>
+      </div>
+    </div>`;
+  const open = () => openModal(mod);
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   return card;
 }
 
-// MODAL
-let currentModal = null;
-
-function openModal(mod) {
-  currentModal = mod;
-  const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
-  els.modalIcon.textContent = cat.icon;
-  els.modalCategory.textContent = cat.label;
-  els.modalTitle.textContent = mod.title;
-  els.modalAuthor.textContent = `Автор: ${mod.author}`;
-  els.modalDesc.textContent = mod.description;
-  els.modalSize.textContent = formatSize(mod.fileSizeMB);
-  els.modalDate.textContent = formatDate(mod.dateAdded);
-  els.modalDownload.href = mod.externalUrl || mod.vpkUrl;
-
-  els.modalTags.innerHTML = mod.tags
-    .map((t) => `<span class="tag">${t}</span>`)
-    .join("");
-
-  // Cover image
-  const existingImg = els.modalCover.querySelector("img");
-  if (existingImg) existingImg.remove();
-  const img = document.createElement("img");
-  img.src = mod.picUrl;
-  img.style.display = "none";
-  els.modalCover.appendChild(img);
-
-  // Extra downloads
-  els.extraDownloads.innerHTML = "";
-  checkExtraDownload(`mods/nf/${mod.id}.vpk`, "Без эффектов");
-  checkExtraDownload(`mods/dlc/${mod.id}.vpk`, "Доп. файлы");
-  checkExtraDownload(`mods/styles/${mod.id}.vpk`, "Второй стиль");
-
-  els.modalOverlay.hidden = false;
+function getFiltered() {
+  const parsed = parseQuery(state.query);
+  const sortKey = parsed.sort && SORTERS[parsed.sort] ? parsed.sort : state.sort;
+  return modsData
+    .filter((m) => matchesQuery(m, parsed))
+    .filter((m) => state.activeCategories.size === 0 || state.activeCategories.has(m.category))
+    .sort(SORTERS[sortKey]);
 }
 
-function checkExtraDownload(url, label) {
+function render() {
+  const filtered = getFiltered();
+  els.grid.innerHTML = "";
+  filtered.forEach((mod, i) => {
+    const card = cardTemplate(mod);
+    card.style.animationDelay = `${Math.min(i, 10) * 25}ms`;
+    els.grid.appendChild(card);
+  });
+  els.empty.hidden = filtered.length !== 0;
+  els.grid.hidden = filtered.length === 0;
+  els.stats.textContent = `${filtered.length} из ${modsData.length} модов`;
+  els.clearSearch.hidden = state.query.length === 0;
+}
+
+// ---------------------------------------------------------------------------
+// modal
+// ---------------------------------------------------------------------------
+
+let lastFocused = null;
+
+// NEW: универсальная проверка доп. версии файла (nf / dlc / styles) —
+// делаем HEAD-запрос, и если файл реально лежит на сервере, показываем кнопку.
+// labelEl/labelText — опционально, чтобы подставить кастомный текст (нужно для dlc,
+// где подпись кнопки берётся из json конкретного мода).
+function checkExtraDownload(el, url, labelEl, labelText) {
+  el.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
   fetch(url, { method: "HEAD" })
     .then((res) => {
       if (res.ok) {
-        const btn = document.createElement("a");
-        btn.className = "btn-secondary";
-        btn.href = url;
-        btn.download = "";
-        btn.target = "_blank";
-        btn.rel = "noopener noreferrer";
-        btn.innerHTML = `<span class="material-symbols-rounded">download</span>${label}`;
-        els.extraDownloads.appendChild(btn);
+        el.href = url;
+        if (labelEl && labelText) labelEl.textContent = labelText;
+        el.hidden = false;
       }
     })
-    .catch(() => {});
+    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем кнопку скрытой
+}
+
+// NEW: (пере)создаёт картинку обложки в модалке — используется и при открытии
+// модалки, и при клике по точкам "основной стиль / второй стиль", чтобы не
+// мелькала старая картинка и не мешал onerror от предыдущей попытки загрузки
+function setCoverImage(url) {
+  els.modalCover.querySelector(".cover-img")?.remove();
+  const img = document.createElement("img");
+  img.className = "cover-img";
+  img.alt = "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.onerror = () => img.remove();
+  img.src = url;
+
+  // клик по картинке — открыть текущую (активную) версию полноразмерной в новой вкладке
+  img.style.cursor = "zoom-in";
+  img.addEventListener("click", (e) => {
+    e.stopPropagation(); // чтобы клик не улетал на оверлей и не закрывал модалку
+    window.open(url, "_blank");
+  });
+
+  els.modalCover.appendChild(img);
+}
+
+// NEW: включает точки-переключатели превью для мода со вторым стилем —
+// основная картинка pic/<id>.png, картинка второго стиля mods/styles/<id>.png
+function enableStyleDots(mod) {
+  const primaryUrl = mod.picUrl;
+  const styleUrl = `mods/styles/${mod.id}.png`;
+  const dots = [...els.modalStyleDots.querySelectorAll(".style-dot")];
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("active", i === 0);
+    dot.onclick = (e) => {
+      e.stopPropagation();
+      dots.forEach((d) => d.classList.remove("active"));
+      dot.classList.add("active");
+      setCoverImage(i === 0 ? primaryUrl : styleUrl);
+    };
+  });
+  els.modalStyleDots.hidden = false;
+}
+
+function openModal(mod) {
+  // NEW: fallback вместо падения, если category битая
+  const cat = categoryById[mod.category] || FALLBACK_CATEGORY;
+  els.modalCover.style.setProperty("--cover", mod.previewColor || "#8C5CF5");
+  els.modalCoverIcon.textContent = cat.icon;
+
+  // пересоздаём картинку превью на каждое открытие, чтобы не мелькала
+  // обложка предыдущего мода, пока грузится/не грузится новая
+  setCoverImage(mod.picUrl);
+  els.modalStyleDots.hidden = true; // сбрасываем сразу — покажем обратно, только если найдём второй стиль
+
+  els.modalCategory.textContent = cat.label;
+  els.modalTitle.textContent = mod.title;
+  els.modalAuthor.textContent = `Автор: ${mod.author}`;
+  els.modalTags.innerHTML = mod.tags.map((t) => `<span class="tag-pill">${t}</span>`).join("");
+  els.modalDesc.textContent = mod.description;
+  els.modalSize.textContent = formatSize(mod.fileSizeMB);
+  els.modalDate.textContent = formatDate(mod.dateAdded);
+  // NEW: если в json мода указана внешняя ссылка (Google Drive, релиз на GitHub и т.п.) —
+  // качаем оттуда, иначе — локальный vpk из mods/. Поле необязательное.
+  els.modalDownload.href = mod.externalUrl || mod.vpkUrl;
+
+  // NEW: проверяем доп. версии файла — без эффектов (nf), доп. файлы (dlc)
+  checkExtraDownload(els.modalDownloadNf, `mods/nf/${mod.id}.vpk`);
+  checkExtraDownload(els.modalDownloadDlc, `mods/dlc/${mod.id}.vpk`, els.modalDownloadDlcLabel, mod.dlcLabel || "Доп. файлы");
+
+  // NEW: второй стиль — своя проверка, т.к. кроме кнопки скачивания
+  // включает ещё и точки-переключатель картинки превью
+  els.modalDownloadStyle.hidden = true; // сбрасываем сразу, чтобы не мигала кнопка от прошлого мода
+  fetch(`mods/styles/${mod.id}.vpk`, { method: "HEAD" })
+    .then((res) => {
+      if (res.ok) {
+        els.modalDownloadStyle.href = `mods/styles/${mod.id}.vpk`;
+        els.modalDownloadStyle.hidden = false;
+        enableStyleDots(mod);
+      }
+    })
+    .catch(() => {}); // файла нет / сеть моргнула — молча оставляем скрытым
+
+  lastFocused = document.activeElement;
+  els.modalOverlay.hidden = false;
+  els.modalClose.focus();
+  document.body.style.overflow = "hidden";
 }
 
 function closeModal() {
   els.modalOverlay.hidden = true;
-  currentModal = null;
+  document.body.style.overflow = "";
+  if (lastFocused) lastFocused.focus();
 }
 
-// CART
-function addToCart(mod) {
-  if (!state.cart.find((m) => m.id === mod.id)) {
-    state.cart.push(mod);
-    updateCartBadge();
-  }
-}
+els.modalClose.addEventListener("click", closeModal);
+els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !els.modalOverlay.hidden) closeModal(); });
 
-function removeFromCart(modId) {
-  state.cart = state.cart.filter((m) => m.id !== modId);
-  updateCartBadge();
-  renderCart();
-}
+// ---------------------------------------------------------------------------
+// wire up controls
+// ---------------------------------------------------------------------------
 
-function updateCartBadge() {
-  els.cartBadge.textContent = state.cart.length;
-}
-
-function renderCart() {
-  if (state.cart.length === 0) {
-    els.cartEmpty.hidden = false;
-    els.cartItemsList.innerHTML = "";
-    els.cartFooter.hidden = true;
-  } else {
-    els.cartEmpty.hidden = true;
-    els.cartFooter.hidden = false;
-    els.cartItemsList.innerHTML = state.cart
-      .map(
-        (mod) => `
-      <div class="cart-item">
-        <div class="cart-item-image">
-          <span class="material-symbols-rounded">package</span>
-        </div>
-        <div class="cart-item-info">
-          <p class="cart-item-title">${mod.title}</p>
-          <p class="cart-item-author">${mod.author}</p>
-        </div>
-        <button class="cart-item-remove" data-id="${mod.id}" aria-label="Удалить">
-          <span class="material-symbols-rounded">close</span>
-        </button>
-      </div>
-    `
-      )
-      .join("");
-
-    document.querySelectorAll(".cart-item-remove").forEach((btn) => {
-      btn.addEventListener("click", () => removeFromCart(btn.dataset.id));
-    });
-  }
-}
-
-function downloadCart() {
-  // Simple multi-download: open each in new tab
-  state.cart.forEach((mod) => {
-    window.open(mod.externalUrl || mod.vpkUrl, "_blank");
-  });
-}
-
-function openCartModal() {
-  renderCart();
-  els.cartOverlay.hidden = false;
-}
-
-function closeCartModal() {
-  els.cartOverlay.hidden = true;
-}
-
-// MOBILE MENU
-function openSidebar() {
-  els.sidebar.classList.add("open");
-  els.overlay.classList.add("open");
-}
-
-function closeSidebar() {
-  els.sidebar.classList.remove("open");
-  els.overlay.classList.remove("open");
-}
-
-// EVENT LISTENERS
-els.searchInput.addEventListener("input", (e) => {
+let debounceTimer;
+els.search.addEventListener("input", (e) => {
   state.query = e.target.value;
-  render();
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(render, 120);
 });
-
-els.searchClear.addEventListener("click", () => {
-  els.searchInput.value = "";
+els.clearSearch.addEventListener("click", () => {
+  els.search.value = "";
   state.query = "";
   render();
+  els.search.focus();
 });
-
-els.sortSelect.addEventListener("change", (e) => {
-  state.sort = e.target.value;
-  render();
-});
-
+els.sortSelect.addEventListener("change", (e) => { state.sort = e.target.value; render(); });
 els.resetFilters.addEventListener("click", () => {
   state.query = "";
   state.activeCategories.clear();
-  els.searchInput.value = "";
-  document.querySelectorAll(".category-btn").forEach((btn) => btn.classList.remove("active"));
+  els.search.value = "";
+  [...els.chipRow.querySelectorAll(".chip")].forEach((c) => c.classList.remove("active"));
   render();
 });
 
-els.modalClose.addEventListener("click", closeModal);
-els.modalOverlay.addEventListener("click", (e) => {
-  if (e.target === els.modalOverlay) closeModal();
-});
+// ---------------------------------------------------------------------------
+// boot
+// ---------------------------------------------------------------------------
 
-els.modalAddCart.addEventListener("click", () => {
-  if (currentModal) {
-    addToCart(currentModal);
-    closeModal();
-  }
-});
-
-els.mobileMenuToggle.addEventListener("click", openSidebar);
-els.sidebarClose.addEventListener("click", closeSidebar);
-els.overlay.addEventListener("click", closeSidebar);
-
-els.cartBtn.addEventListener("click", openCartModal);
-els.cartModalClose.addEventListener("click", closeCartModal);
-els.cartClearBtn.addEventListener("click", () => {
-  state.cart = [];
-  updateCartBadge();
-  renderCart();
-});
-els.cartDownloadBtn.addEventListener("click", downloadCart);
-
-// BOOT
 async function boot() {
+  buildSwatches();
+  buildChips();
   initTheme();
-  buildCategories();
-  els.statsLine.textContent = "Загрузка...";
+  els.stats.textContent = "Загрузка…";
   modsData = await loadMods();
   render();
 }
