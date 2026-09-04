@@ -1,116 +1,158 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vault — каталог модов</title>
-<meta name="description" content="Каталог косметических модов для Dota 2: шрифты, иконки, HUD, вардены, курьеры, эффекты и звуки.">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..800&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..500,0..1,-25..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vault — каталог модов Dota 2</title>
+  <meta name="description" content="Каталог косметических модов для Dota 2: шрифты, иконки, HUD, вардены, курьеры, эффекты и звуки.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header class="top-bar">
-  <div class="bar-row">
-    <div class="brand">
-      <span class="material-symbols-outlined brand-mark">deployed_code</span>
-      <span class="brand-name">Vault</span>
-    </div>
-
-    <label class="search-field">
-      <span class="material-symbols-outlined">search</span>
-      <input id="searchInput" type="text" placeholder="Поиск по названию, автору, тегам…" autocomplete="off">
-      <button id="clearSearch" class="clear-btn" type="button" hidden aria-label="Очистить поиск">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </label>
-
-    <button id="themeToggle" class="icon-btn" type="button" aria-label="Светлая / тёмная тема">
-      <span class="material-symbols-outlined" id="themeIcon">light_mode</span>
+<header class="header">
+  <div class="header-container">
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+      <span class="material-symbols-rounded">menu</span>
     </button>
-  </div>
-
-  <div class="bar-row personalize-row">
-    <span class="personalize-label">Свой цвет</span>
-    <div id="swatchRow" class="swatch-row"></div>
-    <input id="seedColorInput" type="color" value="#8C5CF5" aria-label="Выбрать свой цвет темы">
-    <span class="hint-text">Подсказка: <code>tag:иконки</code> · <code>by:автор</code> · <code>sort:new</code></span>
+    
+    <div class="logo">
+      <span class="logo-text">Vault <span class="emoji">😊</span></span>
+    </div>
+    
+    <div class="search-wrapper">
+      <div class="search-box">
+        <span class="material-symbols-rounded search-icon">search</span>
+        <input type="text" class="search-input" id="searchInput" placeholder="Поиск..." autocomplete="off">
+        <button class="search-clear" id="searchClear" style="display: none;" aria-label="Очистить">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" aria-label="Тема">
+        <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
+      </button>
+      <button class="cart-btn" id="cartBtn" aria-label="Корзина">
+        <span class="material-symbols-rounded">shopping_bag</span>
+        <span class="cart-badge" id="cartBadge">0</span>
+      </button>
+    </div>
   </div>
 </header>
 
-<div class="toolbar">
-  <div id="chipRow" class="chip-row" role="group" aria-label="Фильтр по категориям"></div>
-  <label class="sort-field">
-    <span class="material-symbols-outlined">sort</span>
-    <select id="sortSelect">
-      <option value="new">Сначала новые</option>
-      <option value="old">Сначала старые</option>
-      <option value="az">A → Я</option>
-      <option value="za">Я → A</option>
-      <option value="popular">По популярности</option>
-    </select>
-  </label>
-</div>
-
-<main>
-  <p id="statsLine" class="stats-line"></p>
-  <div id="grid" class="grid"></div>
-  <div id="emptyState" class="empty-state" hidden>
-    <span class="material-symbols-outlined">search_off</span>
-    <p>Ничего не найдено</p>
-    <span class="empty-sub">Попробуйте другой запрос или сбросьте фильтры</span>
-    <button id="resetFilters" class="btn-tonal" type="button">Сбросить фильтры</button>
-  </div>
-</main>
-
-<footer class="site-footer">
-  <p>.</p>
-</footer>
+<div class="container-main">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>Категории</h3>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Закрыть">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="category-list" id="categoryList"></div>
+  </aside>
   
-<div id="modalOverlay" class="modal-overlay" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <button id="modalClose" class="icon-btn modal-close" type="button" aria-label="Закрыть">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-    <div id="modalCover" class="modal-cover">
-      <span class="material-symbols-outlined modal-cover-icon" id="modalCoverIcon"></span>
-      <div id="modalStyleDots" class="modal-style-dots" hidden>
-        <button type="button" class="style-dot active" data-style="0" aria-label="Основной стиль"></button>
-        <button type="button" class="style-dot" data-style="1" aria-label="Второй стиль"></button>
+  <div class="overlay" id="overlay"></div>
+  
+  <main class="main">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="stats-line" id="statsLine"></span>
+      </div>
+      <div class="toolbar-right">
+        <label class="sort-field">
+          <span class="material-symbols-rounded">sort</span>
+          <select id="sortSelect">
+            <option value="new">Новые</option>
+            <option value="old">Старые</option>
+            <option value="az">A → Я</option>
+            <option value="za">Я → A</option>
+          </select>
+        </label>
       </div>
     </div>
+    
+    <div class="grid" id="grid"></div>
+    
+    <div class="empty-state" id="emptyState" hidden>
+      <span class="material-symbols-rounded">search_off</span>
+      <p>Ничего не найдено</p>
+      <button class="btn-primary" id="resetFilters" type="button">Сбросить фильтры</button>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" id="modalClose" aria-label="Закрыть">
+      <span class="material-symbols-rounded">close</span>
+    </button>
+    
+    <div class="modal-cover" id="modalCover">
+      <span class="material-symbols-rounded modal-icon" id="modalIcon"></span>
+    </div>
+    
     <div class="modal-body">
-      <p id="modalCategory" class="modal-category"></p>
-      <h2 id="modalTitle"></h2>
-      <p id="modalAuthor" class="modal-author"></p>
-      <div id="modalTags" class="chip-row modal-tags"></div>
-      <p id="modalDesc" class="modal-desc"></p>
+      <span class="modal-category" id="modalCategory"></span>
+      <h2 class="modal-title" id="modalTitle"></h2>
+      <p class="modal-author" id="modalAuthor"></p>
+      <div class="modal-tags" id="modalTags"></div>
+      <p class="modal-desc" id="modalDesc"></p>
+      
       <div class="modal-meta">
-        <span><span class="material-symbols-outlined tiny">folder_zip</span> <span id="modalSize"></span></span>
-        <span><span class="material-symbols-outlined tiny">calendar_today</span> <span id="modalDate"></span></span>
+        <span><span class="material-symbols-rounded icon-small">folder_zip</span><span id="modalSize"></span></span>
+        <span><span class="material-symbols-rounded icon-small">calendar_today</span><span id="modalDate"></span></span>
       </div>
-      <div class="modal-downloads">
-        <a id="modalDownload" class="btn-filled" href="#" target="_blank" rel="noopener noreferrer" download>
-          <span class="material-symbols-outlined">download</span>
+      
+      <div class="modal-actions">
+        <a id="modalDownload" class="btn-primary" href="#" target="_blank" rel="noopener noreferrer" download>
+          <span class="material-symbols-rounded">download</span>
           Скачать
         </a>
-        <a id="modalDownloadNf" class="btn-tonal" href="#" target="_blank" rel="noopener noreferrer" download hidden>
-          <span class="material-symbols-outlined">download</span>
-          Без эффектов
-        </a>
-        <a id="modalDownloadDlc" class="btn-tonal" href="#" target="_blank" rel="noopener noreferrer" download hidden>
-          <span class="material-symbols-outlined">download</span>
-          <span id="modalDownloadDlcLabel">Доп. файлы</span>
-        </a>
-        <a id="modalDownloadStyle" class="btn-tonal" href="#" target="_blank" rel="noopener noreferrer" download hidden>
-          <span class="material-symbols-outlined">download</span>
-          Второй стиль
-        </a>
+        <button class="btn-secondary" id="modalAddCart" type="button">
+          <span class="material-symbols-rounded">add_shopping_cart</span>
+          В корзину
+        </button>
       </div>
+      
+      <div class="modal-extra-downloads" id="extraDownloads"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cart Modal -->
+<div class="cart-overlay" id="cartOverlay" hidden>
+  <div class="cart-modal">
+    <div class="cart-header">
+      <h2>Корзина</h2>
+      <button class="cart-modal-close" id="cartModalClose" aria-label="Закрыть">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    
+    <div class="cart-content">
+      <div class="cart-empty" id="cartEmpty">
+        <span class="material-symbols-rounded">shopping_bag</span>
+        <p>Корзина пуста</p>
+      </div>
+      
+      <div class="cart-items-list" id="cartItemsList"></div>
+    </div>
+    
+    <div class="cart-footer" id="cartFooter">
+      <button class="btn-secondary" id="cartClearBtn" type="button">
+        <span class="material-symbols-rounded">delete</span>
+        Очистить
+      </button>
+      <button class="btn-primary" id="cartDownloadBtn" type="button">
+        <span class="material-symbols-rounded">archive</span>
+        Скачать все
+      </button>
     </div>
   </div>
 </div>
